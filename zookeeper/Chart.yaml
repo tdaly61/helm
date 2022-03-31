@@ -1,0 +1,11 @@
+apiVersion: v1
+name: zookeeper
+home: https://zookeeper.apache.org/
+version: 1.0.0
+appVersion: 3.5.5
+description: locally modified for arm architecturre and use in the mojaloop project
+icon: https://zookeeper.apache.org/images/zookeeper_small.gif
+sources:
+- https://github.com/apache/zookeeper
+- https://github.com/kubernetes/contrib/tree/master/statefulsets/zookeeper
+deprecated: true

@@ -1617,10 +1617,10 @@ kafka:
   replicas: 1
 
   ## The kafka image repository
-  image: "confluentinc/cp-kafka"
+  #image: "confluentinc/cp-kafka"
 
   ## The kafka image tag
-  imageTag: "5.0.1"
+  #imageTag: "5.0.1"
 
   ## Specify a imagePullPolicy
   ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -1829,7 +1829,7 @@ kafka:
   prometheus:
     ## Prometheus JMX Exporter: exposes the majority of Kafkas metrics
     jmx:
-      enabled: true
+      enabled: false
 
       ## The image to use for the metrics collector
       image: solsson/kafka-prometheus-jmx-exporter@sha256
@@ -1853,7 +1853,7 @@ kafka:
 
     ## Prometheus Kafka Exporter: exposes complimentary metrics to JMX Exporter
     kafka:
-      enabled: true
+      enabled: false
 
       ## The image to use for the metrics collector
       image: danielqsj/kafka-exporter
