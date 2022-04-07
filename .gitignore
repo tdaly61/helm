@@ -5,6 +5,7 @@
 .idea/**
 .vscode
 launch.json
+*code-workspace
 
 # General Ignores
 *IGNORE*
@@ -17,6 +18,7 @@ launch.json
 **/tmpcharts
 requirements.lock
 Chart.lock
+package-lock.json
 
 # Helm Publish Repo
 repo/**
