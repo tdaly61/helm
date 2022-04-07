@@ -1,8 +1,8 @@
 ## mysql image version
 ## ref: https://hub.docker.com/r/library/mysql/tags/
 ##
-image: "mysql"
-imageTag: "8.0.28"
+image: "mysql/mysql-server"
+imageTag: "8.0.28-1.2.7-server"
 
 strategy:
   type: Recreate
@@ -18,16 +18,19 @@ testFramework:
   imagePullPolicy: IfNotPresent
   securityContext: {}
 
+## Specify the mysl default-authentication-plugin
+mysqlDefaultAuthenticationPlugin: mysql_native_password
+
 ## Specify password for root user
 ##
 ## Default: random 10 character string
-# mysqlRootPassword: testing
+mysqlRootPassword: password
 
 ## Create a database user
 ##
-# mysqlUser:
+mysqlUser: mysql
 ## Default: random 10 character string
-# mysqlPassword:
+mysqlPassword: mysqlp
 
 ## Allow unauthenticated access, uncomment to enable
 ##
@@ -35,7 +38,7 @@ testFramework:
 
 ## Create a database
 ##
-# mysqlDatabase:
+mysqlDatabase: mysql
 
 ## Specify an imagePullPolicy (Required)
 ## It's recommended to change this to 'Always' if the image tag is 'latest'
@@ -138,16 +141,38 @@ resources:
 configurationFilesPath: /etc/mysql/conf.d/
 
 # Custom mysql configuration files used to override default mysql settings
-configurationFiles: {}
-#  mysql.cnf: |-
-#    [mysqld]
-#    skip-name-resolve
-#    ssl-ca=/ssl/ca.pem
-#    ssl-cert=/ssl/server-cert.pem
-#    ssl-key=/ssl/server-key.pem
+# TODO the my.cnf in the docker container I am using is not including conf.d
+configurationFiles: 
+  mysql.cnf: |-
+    [mysqld]
+    skip-name-resolve
+    default-authentication-plugin=mysql_native_password
+
 
 # Custom mysql init SQL files used to initialize the database
-initializationFiles: {}
+initializationFiles:
+  allowroot.sql: |- 
+    CREATE USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'oyMxgZChuu';
+    GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+    ALTER USER IF EXISTS 'central_ledger'@'%' IDENTIFIED WITH mysql_native_password BY 'oyMxgZChuu';
+    CREATE USER 'tom'@'%' IDENTIFIED WITH mysql_native_password BY 'tom';
+    GRANT ALL PRIVILEGES ON *.* TO 'tom'@'%' WITH GRANT OPTION;
+    FLUSH PRIVILEGES;
+# ALTER USER 'root'@'localhost' IDENTIFIED BY 'oyMxgZChuu'; 
+# ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'oyMxgZChuu';
+# GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+# ALTER USER 'central_ledger'@'localhost' IDENTIFIED BY 'password'; 
+# 
+# CREATE USER 'tom'@'%' IDENTIFIED BY 'password';
+# ALTER USER 'tom'@'%' IDENTIFIED WITH mysql_native_password BY 'password';
+# GRANT ALL PRIVILEGES ON *.* TO 'tom'@'%' WITH GRANT OPTION;
+# FLUSH PRIVILEGES;
+# allowroot.sql: |- 
+#   CREATE USER 'tom'@'localhost' IDENTIFIED BY 'password';
+#   GRANT ALL PRIVILEGES ON *.* TO 'tom'@'localhost' WITH GRANT OPTION;
+#   CREATE USER 'tom'@'%' IDENTIFIED BY 'password';
+#   GRANT ALL PRIVILEGES ON *.* TO 'tom'@'%' WITH GRANT OPTION;
+#   FLUSH PRIVILEGES;
 #  first-db.sql: |-
 #    CREATE DATABASE IF NOT EXISTS first DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
 #  second-db.sql: |-

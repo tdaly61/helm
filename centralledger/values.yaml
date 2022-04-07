@@ -6,9 +6,11 @@ global: {}
 
 # Declare variables to be passed into your templates.
 
+
 centralledger-service:
   # Default values for central-ledger.
   # This is a YAML-formatted file.
+
 
   # Declare variables to be passed into your templates.
   enabled: true
@@ -16,8 +18,8 @@ centralledger-service:
   containers:
     api:
       image:
-        repository: mojaloop/central-ledger
-        tag: v13.16.1
+        repository: test
+        tag:  latest
         pullPolicy: IfNotPresent
         command: '["node", "src/api/index.js"]'
       service:
@@ -123,14 +125,15 @@ centralledger-service:
       pullPolicy: IfNotPresent
     mysql:
       name: wait-for-mysql
-      repository: mysql
-      tag: latest
+      repository: mysql/mysql-server
+      tag: 8.0.28-1.2.7-server
       pullPolicy: IfNotPresent
       command: "until mysql -h $db_host -P $db_port -u $db_user --password=$db_password  $db_database   -e 'select version()' ; do echo waiting for MySQL; sleep 2; done;"
     migration:
       enabled: true
       name: run-migration
       command: npm run migrate
+      #command: sleep infinity
       config:
         run_data_migration: true
 
@@ -150,6 +153,7 @@ centralledger-service:
       ports:
         api:
           name: http-api
+          internalPort: 80 
           externalPort: 3001
 
   ingress:
@@ -195,8 +199,8 @@ centralledger-handler-transfer-prepare:
   containers:
     api:
       image:
-        repository: mojaloop/central-ledger
-        tag: v13.16.1
+        repository: test
+        tag:  latest
         pullPolicy: IfNotPresent
         command: '["node", "src/handlers/index.js", "handler", "--prepare"]'
       service:
@@ -231,7 +235,7 @@ centralledger-handler-transfer-prepare:
   tolerations: []
 
   sidecar:
-    enabled: true
+    enabled: false
     image:
       repository: mojaloop/event-sidecar
       tag: v11.0.1
@@ -300,10 +304,10 @@ centralledger-handler-transfer-prepare:
     enabled: true
     kafka:
       name: wait-for-kafka
-      repository: solsson/kafka
+      repository: kymeric/cp-kafka
       tag: latest
       pullPolicy: IfNotPresent
-      command: "until ./bin/kafka-broker-api-versions.sh --bootstrap-server $kafka_host:$kafka_port; do echo waiting for Kafka; sleep 2; done;"
+      command: "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
       env: {}
       ## Env example
       # env:
@@ -318,8 +322,8 @@ centralledger-handler-transfer-prepare:
       pullPolicy: IfNotPresent
     mysql:
       name: wait-for-mysql
-      repository: mysql
-      tag: latest
+      repository: mysql/mysql-server
+      tag: 8.0.28-1.2.7-server
       pullPolicy: IfNotPresent
       command: "until result=$(mysql -h $db_host -P $db_port -u $db_user --password=$db_password  $db_database -ss -N -e 'select is_locked from migration_lock;') && eval 'echo is_locked=$result' && if [ -z $result ]; then false; fi && if [ $result -ne 0 ]; then false; fi; do echo waiting for MySQL; sleep 2; done;"
 
@@ -384,8 +388,8 @@ centralledger-handler-transfer-position:
   containers:
     api:
       image:
-        repository: mojaloop/central-ledger
-        tag: v13.16.1
+        repository: test
+        tag:  latest
         pullPolicy: IfNotPresent
         command: '["node", "src/handlers/index.js", "handler", "--position"]'
       service:
@@ -420,7 +424,7 @@ centralledger-handler-transfer-position:
   tolerations: []
 
   sidecar:
-    enabled: true
+    enabled: false
     image:
       repository: mojaloop/event-sidecar
       tag: v11.0.1
@@ -486,10 +490,10 @@ centralledger-handler-transfer-position:
     enabled: true
     kafka:
       name: wait-for-kafka
-      repository: solsson/kafka
+      repository: kymeric/cp-kafka
       tag: latest
       pullPolicy: IfNotPresent
-      command: "until ./bin/kafka-broker-api-versions.sh --bootstrap-server $kafka_host:$kafka_port; do echo waiting for Kafka; sleep 2; done;"
+      command: "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
       env: {}
       ## Env example
       # env:
@@ -504,8 +508,8 @@ centralledger-handler-transfer-position:
       pullPolicy: IfNotPresent
     mysql:
       name: wait-for-mysql
-      repository: mysql
-      tag: latest
+      repository: mysql/mysql-server
+      tag: 8.0.28-1.2.7-server
       pullPolicy: IfNotPresent
       command: "until result=$(mysql -h $db_host -P $db_port -u $db_user --password=$db_password  $db_database -ss -N -e 'select is_locked from migration_lock;') && eval 'echo is_locked=$result' && if [ -z $result ]; then false; fi && if [ $result -ne 0 ]; then false; fi; do echo waiting for MySQL; sleep 2; done;"
 
@@ -570,8 +574,8 @@ centralledger-handler-transfer-get:
   containers:
     api:
       image:
-        repository: mojaloop/central-ledger
-        tag: v13.16.1
+        repository: test
+        tag: latest 
         pullPolicy: IfNotPresent
         command: '["node", "src/handlers/index.js", "handler", "--get"]'
       service:
@@ -672,10 +676,10 @@ centralledger-handler-transfer-get:
     enabled: true
     kafka:
       name: wait-for-kafka
-      repository: solsson/kafka
+      repository: kymeric/cp-kafka
       tag: latest
       pullPolicy: IfNotPresent
-      command: "until ./bin/kafka-broker-api-versions.sh --bootstrap-server $kafka_host:$kafka_port; do echo waiting for Kafka; sleep 2; done;"
+      command: "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
       env: {}
       ## Env example
       # env:
@@ -690,8 +694,8 @@ centralledger-handler-transfer-get:
       pullPolicy: IfNotPresent
     mysql:
       name: wait-for-mysql
-      repository: mysql
-      tag: latest
+      repository: mysql/mysql-server
+      tag: 8.0.28-1.2.7-server
       pullPolicy: IfNotPresent
       command: "until result=$(mysql -h $db_host -P $db_port -u $db_user --password=$db_password  $db_database -ss -N -e 'select is_locked from migration_lock;') && eval 'echo is_locked=$result' && if [ -z $result ]; then false; fi && if [ $result -ne 0 ]; then false; fi; do echo waiting for MySQL; sleep 2; done;"
 
@@ -756,8 +760,8 @@ centralledger-handler-transfer-fulfil:
   containers:
     api:
       image:
-        repository: mojaloop/central-ledger
-        tag: v13.16.1
+        repository: test
+        tag:  latest
         pullPolicy: IfNotPresent
         command: '["node", "src/handlers/index.js", "handler", "--fulfil"]'
       service:
@@ -792,7 +796,7 @@ centralledger-handler-transfer-fulfil:
   tolerations: []
 
   sidecar:
-    enabled: true
+    enabled: false
     image:
       repository: mojaloop/event-sidecar
       tag: v11.0.1
@@ -858,10 +862,10 @@ centralledger-handler-transfer-fulfil:
     enabled: true
     kafka:
       name: wait-for-kafka
-      repository: solsson/kafka
+      repository: kymeric/cp-kafka
       tag: latest
       pullPolicy: IfNotPresent
-      command: "until ./bin/kafka-broker-api-versions.sh --bootstrap-server $kafka_host:$kafka_port; do echo waiting for Kafka; sleep 2; done;"
+      command: "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
       env: {}
       ## Env example
       # env:
@@ -876,8 +880,8 @@ centralledger-handler-transfer-fulfil:
       pullPolicy: IfNotPresent
     mysql:
       name: wait-for-mysql
-      repository: mysql
-      tag: latest
+      repository: mysql/mysql-server
+      tag: 8.0.28-1.2.7-server
       pullPolicy: IfNotPresent
       command: "until result=$(mysql -h $db_host -P $db_port -u $db_user --password=$db_password  $db_database -ss -N -e 'select is_locked from migration_lock;') && eval 'echo is_locked=$result' && if [ -z $result ]; then false; fi && if [ $result -ne 0 ]; then false; fi; do echo waiting for MySQL; sleep 2; done;"
 
@@ -942,8 +946,8 @@ centralledger-handler-timeout:
   containers:
     api:
       image:
-        repository: mojaloop/central-ledger
-        tag: v13.16.1
+        repository: test
+        tag:  latest
         pullPolicy: IfNotPresent
         command: '["node", "src/handlers/index.js", "handler", "--timeout"]'
       service:
@@ -978,7 +982,7 @@ centralledger-handler-timeout:
   tolerations: []
 
   sidecar:
-    enabled: true
+    enabled: false
     image:
       repository: mojaloop/event-sidecar
       tag: v11.0.1
@@ -1049,10 +1053,10 @@ centralledger-handler-timeout:
     enabled: true
     kafka:
       name: wait-for-kafka
-      repository: solsson/kafka
+      repository: kymeric/cp-kafka
       tag: latest
       pullPolicy: IfNotPresent
-      command: "until ./bin/kafka-broker-api-versions.sh --bootstrap-server $kafka_host:$kafka_port; do echo waiting for Kafka; sleep 2; done;"
+      command: "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
       env: {}
       ## Env example
       # env:
@@ -1067,8 +1071,8 @@ centralledger-handler-timeout:
       pullPolicy: IfNotPresent
     mysql:
       name: wait-for-mysql
-      repository: mysql
-      tag: latest
+      repository: mysql/mysql-server
+      tag: 8.0.28-1.2.7-server
       pullPolicy: IfNotPresent
       command: "until result=$(mysql -h $db_host -P $db_port -u $db_user --password=$db_password  $db_database -ss -N -e 'select is_locked from migration_lock;') && eval 'echo is_locked=$result' && if [ -z $result ]; then false; fi && if [ $result -ne 0 ]; then false; fi; do echo waiting for MySQL; sleep 2; done;"
 
@@ -1133,8 +1137,8 @@ centralledger-handler-admin-transfer:
   containers:
     api:
       image:
-        repository: mojaloop/central-ledger
-        tag: v13.16.1
+        repository: test
+        tag:  latest
         pullPolicy: IfNotPresent
         command: '["node", "src/handlers/index.js", "handler", "--admin"]'
       service:
@@ -1235,10 +1239,10 @@ centralledger-handler-admin-transfer:
     enabled: true
     kafka:
       name: wait-for-kafka
-      repository: solsson/kafka
+      repository: kymeric/cp-kafka
       tag: latest
       pullPolicy: IfNotPresent
-      command: "until ./bin/kafka-broker-api-versions.sh --bootstrap-server $kafka_host:$kafka_port; do echo waiting for Kafka; sleep 2; done;"
+      command: "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
       env: {}
       ## Env example
       # env:
@@ -1253,8 +1257,8 @@ centralledger-handler-admin-transfer:
       pullPolicy: IfNotPresent
     mysql:
       name: wait-for-mysql
-      repository: mysql
-      tag: latest
+      repository: mysql/mysql-server
+      tag: 8.0.28-1.2.7-server
       pullPolicy: IfNotPresent
       command: "until result=$(mysql -h $db_host -P $db_port -u $db_user --password=$db_password  $db_database -ss -N -e 'select is_locked from migration_lock;') && eval 'echo is_locked=$result' && if [ -z $result ]; then false; fi && if [ $result -ne 0 ]; then false; fi; do echo waiting for MySQL; sleep 2; done;"
 
@@ -1485,10 +1489,9 @@ mysql:
 
   ## percona image and version
   ## ref: https://hub.docker.com/r/percona/percona-xtradb-cluster/tags/
-  image:
-    repository: "percona/percona-xtradb-cluster"
-    tag: "5.7.19"
-    pullPolicy: IfNotPresent
+  image: "mysql/mysql-server"
+  imageTag: "8.0.28-1.2.7-server"
+  pullPolicy: IfNotPresent
 
   # Desired number of members of xtradb cluster
   replicas: 1
