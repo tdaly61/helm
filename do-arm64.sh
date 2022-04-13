@@ -145,11 +145,34 @@ if [[ "$mode" == "convert_images" ]]  ; then
     done     
 fi 
 
-if [[ "$mode" == "update_charts ]]  ; then
+if [[ "$mode" == "update_charts" ]]  ; then
     printf "\n========================================================================================\n"
     printf " Updating helm charts to use correct images \n"
-    printf "========================================================================================\n"
-    for key in  ${!GIT_REPO_ARRAY[@]}; do
-        convert_to_containerd_image $key
-    done     
+    printf "========================================================================================\n\n"
+    printf "Updating Central chart \n"
+    #cd $HELM_CHARTS_DIR
+    cd $HOME/tmp
+    rm -rf central*
+    pwd
+    cp -r ../helm/central* .
+
+    # replace kafka references 
+    find . -type f -name values.yaml -print0 | xargs -0 perl -i.bak-1 -pe's/repository:\s*solsson\/kafka/repository: kymeric\/cp-kafka/g'
+    # replace kafka start-up check 
+    find . -type f -name values.yaml -print0 | xargs -0 perl -i.bak-2 -pe's/\.\/bin\/kafka-broker-api-versions.sh --bootstrap-server/nc -vz -w 1/g'
+    until ./bin/kafka-broker-api-versions.sh --bootstrap-server
+    until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;
+    # replace mysql references 
+    find . -type f -name values.yaml -print0 | xargs -0 perl -i.bak-3 -pe's/repository:\s*mysql/repository: mysql\/mysql/g'
+    # disable prometheus 
+  
+
+
+    #find . -type f -name values.yaml  -print0 | xargs -0 perl -ne 'print if /repository:\s?mysql/' 
+    
+    # replace repository: mojaloop: central-ledger references 
+    # replace central_event_processor_local 
+    # replace central_settlement
+    # replace event-sidecar
+
 fi 
