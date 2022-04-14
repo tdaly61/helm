@@ -16,6 +16,9 @@
         - Should this be using PyYaml for the matching not regexp 
           (I looked at this but he helm charts are so long and nested it is ugly and hard , still perhaps another look is warranted)
         - Explore changing the helm charts and ingress to support ML > v1.20
+        - TEST out how good the high level charts are by making the changes only in the toplevel values.xml.  Yeah in theory I could have just done the 
+          toplevel charts and done them by hand BUT I still need to modify the requirememts and add ghe local mysql,kafka and zookeepr charts AND 
+          doing this coding starts a toolchain that we might use more in the future. 
     
 """
 
@@ -35,6 +38,7 @@ from fileinput import FileInput
 def parse_args(args=sys.argv[1:]):
     parser = argparse.ArgumentParser(description='Automate modifications across mojaloop helm charts')
     parser.add_argument("-d", "--directory", required=True, help="directory for helm charts")
+    parser.add_argument("-r", "--requirementsonly", required=False, action="store_true", help="modify only the requirements.yaml files")
 
     args = parser.parse_args(args)
     if len(sys.argv[1:])==0:
@@ -65,54 +69,119 @@ def main(argv) :
     # for now disable metrics and metrics exporting
     # replace the mojaloop images with the locally built  ones
 
-    for vf in p.rglob('**/values.yaml'):
-        backupfile= Path(vf.parent) / f"{vf.name}_bak"
-        #backupfile= Path("/tmp") / f"{vf.name}.bak"
-        print(f"{vf} : {backupfile}")
-        copyfile(vf, backupfile)
-        with FileInput(files=[vf], inplace=True) as f:
-            next_line_is_mysql_tag = False
-            next_line_is_metrics_enabled = False
-            for line in f:
-                line = line.rstrip()
-                line = re.sub("repository:\s*solsson/kafka" , "repository: kymeric/cp-kafka ", line )
-                line = re.sub("bin/kafka-broker-api-versions.sh --bootstrap-server", "nc -vz -w 1", line) 
-                if (next_line_is_mysql_tag):
-                    line = re.sub("tag:.*$", "tag: latest", line )
-                    #line = line + '\ntomlatest'
-                    next_line_is_mysql_tag = False
-                if re.match("\s*repository:\s*mysql", line ) : 
-                    # modify to use the mysql-sever image for which there are arm builds
-                    # and set flag to indicate next line is the tage which also needs updating 
-                    line = re.sub("repository:\s*mysql", "repository: mysql/mysql-server", line )
-                    # line = line + '\ntomlaok'
-                    next_line_is_mysql_tag=True 
-                
-                # for now turn metrics off and metrics exporting off 
-                if (next_line_is_metrics_enabled ):
-                    if re.match("\s* #", line ):
-                        continue
-                    line = re.sub("enabled:.*$", "enabled: false", line )
-                    next_line_is_metrics_enabled = False
-                if re.match("\s*metrics.*$", line ) : 
-                    next_line_is_metrics_enabled=True 
-                
-                # now update the mojaloop images 
-                # TODO : check that there is no mojaloop image with > 3 parts to its name i.e. > 3 hypens
-                line = re.sub(r"\s*repository:\s*mojaloop/(\w+)-(\w+)-(\w+)", r"repository: \1_\2_\3_local mojatom ", line )
-                line = re.sub(r"\s*repository:\s*mojaloop/(\w+)-(\w+)", r"repository: \1_\2_local mojatom ", line )
-                line = re.sub(r"\s*repository:\s*mojaloop/(\w+)", r"repository: \1_local mojatom ", line )
+    if ( not args.requirementsonly ) : 
+        print("really I am not sure you want to be doing this ")
+        sys.exit(1)
+        for vf in p.rglob('**/values.yaml'):
+            backupfile= Path(vf.parent) / f"{vf.name}_bak"
+            #backupfile= Path("/tmp") / f"{vf.name}.bak"
+            print(f"{vf} : {backupfile}")
+            copyfile(vf, backupfile)
+            with FileInput(files=[vf], inplace=True) as f:
+                next_line_is_mysql_tag = False
+                next_line_is_metrics_enabled = False
+                for line in f:
+                    line = line.rstrip()
+                    line = re.sub("repository:\s*solsson/kafka" , "repository: kymeric/cp-kafka ", line )
+                    line = re.sub("bin/kafka-broker-api-versions.sh --bootstrap-server", "nc -vz -w 1", line) 
+                    if (next_line_is_mysql_tag):
+                        line = re.sub("tag:.*$", "tag: latest", line )
+                        #line = line + '\ntomlatest'
+                        next_line_is_mysql_tag = False
+                    if re.match("\s*repository:\s*mysql", line ) : 
+                        # modify to use the mysql-sever image for which there are arm builds
+                        # and set flag to indicate next line is the tage which also needs updating 
+                        line = re.sub("repository:\s*mysql", "repository: mysql/mysql-server", line )
+                        # line = line + '\ntomlaok'
+                        next_line_is_mysql_tag=True 
+                    
+                    # for now turn metrics off and metrics exporting off 
+                    if (next_line_is_metrics_enabled ):
+                        if re.match("\s* #", line ):
+                            continue
+                        line = re.sub("enabled:.*$", "enabled: false", line )
+                        next_line_is_metrics_enabled = False
+                    if re.match("\s*metrics.*$", line ) : 
+                        next_line_is_metrics_enabled=True 
+                    
+                    # now update the mojaloop images 
+                    # TODO : check that there is no mojaloop image with > 3 parts to its name i.e. > 3 hypens
+                    line = re.sub(r"\s*repository:\s*mojaloop/(\w+)-(\w+)-(\w+)", r"repository: \1_\2_\3_local mojatom ", line )
+                    line = re.sub(r"\s*repository:\s*mojaloop/(\w+)-(\w+)", r"repository: \1_\2_local mojatom ", line )
+                    line = re.sub(r"\s*repository:\s*mojaloop/(\w+)", r"repository: \1_local mojatom ", line )
 
 
-                print(line)
+                    print(line)
 
         
     ## TODO  Need to modify the kafka requirements.yaml to update the zookeeper image 
     ##       if I am fully automating this 
+    # walk the directory structure and process all the requirements.yaml files 
+    # kafka => local kafka chart 
+    # mysql/percona => local mysql chart with later arm64 based image 
+    # zookeeper => local zookeeper (this is in the requirements.yaml of the kafka local chart)
+
+    for rf in p.rglob('**/requirements.yaml'):
+        backupfile= Path(rf.parent) / f"{rf.name}_bak"
+        print(f"{rf} : {backupfile}")
+        copyfile(rf, backupfile)
+        with open(rf) as f:
+            reqs_data = yaml.safe_load(f)
+            #print(reqs_data)
+
+        dlist = reqs_data['dependencies']
+        for i in range(len(dlist)): 
+            if (dlist[i]['name'] == "percona-xtradb-cluster"): 
+                print(f"old was: {dlist[i]}")
+                dlist[i]['name'] = "mysql"
+                dlist[i]['version'] = "1.0.0"
+                dlist[i]['repository'] = "file://../mysql"
+                dlist[i]['alias'] = "mysql"
+                dlist[i]['condition'] = "enabled"
+                print(f"new is: {dlist[i]}")
+
+            if (dlist[i]['name'] == "kafka"):
+                print(f"old was: {dlist[i]}")
+                dlist[i]['repository'] = "file://../kafka"
+                print(f"new is: {dlist[i]}")
+
+            if (dlist[i]['name'] == "zookeeper"):
+                print(f"old was: {dlist[i]}")
+                dlist[i]['version'] = "1.0.0"
+                dlist[i]['repository'] = "file://../zookeeper"
+                print(f"new is: {dlist[i]}")
+
+        
+        # if ( dlist[i]['name'] != 'common' ) :
+        #     sc_dir=Path(dlist[i]['repository']).name
+        #     subchart_list.append(sc_dir)
+        #     for dep in reqs_data:
+        #         for i in length(dep)
+        #         if dep["dependencies"]["name"] == "percona-xtradb-cluster":
+        #             printf("FOUND FOUND FOUND")
+
+            #print(yaml.dump(reqs_data))
 
 
 
-    l = list(p.glob('**/values.yaml'))
+# with open("data.yaml", "w") as f:
+#     yaml.dump(list_doc, f)
+
+
+
+
+
+
+        # with open(rf , 'r' ) as infile:
+        #     data = infile.read()
+        # with open(rf, 'w' ) as f: 
+        #         line = line.rstrip()
+        #         line = re.sub("- name: percona-xtradb-cluster" , "- name: mysql", line )
+        #         line = re.sub("bin/kafka-broker-api-versions.sh --bootstrap-server", "nc -vz -w 1", line) 
+
+        #     print(line) 
+
+    #l = list(p.glob('**/values.yaml'))
     #print(f"values files : [{l}]")
 
     # for i in range(len(l)) : 
