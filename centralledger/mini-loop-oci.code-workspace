@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "../../mini-loop"
+		},
+		{
+			"path": "../../dockerfiles"
+		},
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../incubator"
+		},
+		{
+			"path": "../../central-ledger"
+		}
+	],
+	"settings": {}
+}
