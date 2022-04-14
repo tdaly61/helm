@@ -4,16 +4,18 @@
     various modifications and processing of helm charts especially  values.yaml files
     author: Tom Daly (tdaly61@gmail.com)
     Date : April 2022
-    Note : the main benefits of this programatic approach are : -
+    Notes : the main benefits of this programatic approach are : -
         - clearly documents the changes made to get the hel charts to work
         - starts building some tools that may well help to automate and simplify the maintence of the helm charts at
           least it enables investigation of that possibility. 
         - did this in python rather than perl one-lines because we need more control to match across lines 
           and because my perl programming is rather rusty. 
+        - Also it looks like this approach could be used to modify ML V13.1 charts to run on K8s > v1.20 
 
     TODO: 
         - Should this be using PyYaml for the matching not regexp 
           (I looked at this but he helm charts are so long and nested it is ugly and hard , still perhaps another look is warranted)
+        - Explore changing the helm charts and ingress to support ML > v1.20
     
 """
 
@@ -46,14 +48,13 @@ def parse_args(args=sys.argv[1:]):
 def main(argv) :
     args=parse_args()
 
-    charts_dict= { 
-        "central-event-processor" : "central_event_processor_local",
-        "central-settlement" : "central_settlement_local" ,
-        "central-ledger" : "central_ledger_local" ,
-    }
+    # charts_dict= { 
+    #     "central-event-processor" : "central_event_processor_local",
+    #     "central-settlement" : "central_settlement_local" ,
+    #     "central-ledger" : "central_ledger_local" ,
+    # }
 
     p = Path() / args.directory
-    print(f"mypath: [{p}]")
     print(f"Processing helm charts in directory: [{args.directory}]")
 
     # walk the directory structure and process all the values.yaml files 
@@ -62,7 +63,7 @@ def main(argv) :
     # replace mysql with arm version of mysql and adjust tag on the following line (TODO: check that latest docker mysql/mysql-server latest tag is ok )
     # TODO: maybe don't do this line by line but rather read in the entire file => can match across lines and avoid the next_line_logic 
     # for now disable metrics and metrics exporting
-
+    # replace the mojaloop images with the locally built  ones
 
     for vf in p.rglob('**/values.yaml'):
         backupfile= Path(vf.parent) / f"{vf.name}_bak"
@@ -101,15 +102,14 @@ def main(argv) :
                 line = re.sub(r"\s*repository:\s*mojaloop/(\w+)-(\w+)-(\w+)", r"repository: \1_\2_\3_local mojatom ", line )
                 line = re.sub(r"\s*repository:\s*mojaloop/(\w+)-(\w+)", r"repository: \1_\2_local mojatom ", line )
                 line = re.sub(r"\s*repository:\s*mojaloop/(\w+)", r"repository: \1_local mojatom ", line )
-                
-                
-
-                
 
 
                 print(line)
 
         
+    ## TODO  Need to modify the kafka requirements.yaml to update the zookeeper image 
+    ##       if I am fully automating this 
+
 
 
     l = list(p.glob('**/values.yaml'))
