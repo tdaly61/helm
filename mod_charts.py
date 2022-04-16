@@ -124,10 +124,11 @@ def main(argv) :
                         next_line_is_mojaloop_tag = False
                     # TODO : check that there is no mojaloop image with > 3 parts to its name i.e. > 3 hypens
                     if re.match(r"(\s+)repository:\s*mojaloop", line ) : 
-                      line = re.sub(r"(\s+)repository:\s*mojaloop/(\w+)-(\w+)-(\w+)", r"\1repository: \2_\3_\4_local", line )
-                      line = re.sub(r"(\s+)repository:\s*mojaloop/(\w+)-(\w+)", r"\1repository: \2_\3_local", line )
-                      line = re.sub(r"(\s+)repository:\s*mojaloop/(\w+)", r"\1repository: \2_local", line )
-                      next_line_is_mojaloop_tag = True 
+                        line = re.sub(r"(\s+)repository:\s*mojaloop/(\w+)-(\w+)-(\w+)-(\w+)", r"\1repository: \2_\3_\4_\5_local", line )
+                        line = re.sub(r"(\s+)repository:\s*mojaloop/(\w+)-(\w+)-(\w+)", r"\1repository: \2_\3_\4_local", line )
+                        line = re.sub(r"(\s+)repository:\s*mojaloop/(\w+)-(\w+)", r"\1repository: \2_\3_local", line )
+                        line = re.sub(r"(\s+)repository:\s*mojaloop/(\w+)", r"\1repository: \2_local", line )
+                        next_line_is_mojaloop_tag = True 
 
 
                     print(line)
@@ -194,18 +195,22 @@ def main(argv) :
                   #print(reqs_data)
 
               for x, y in reqs_data.items():
+                print(x)
                 # correct image for Kafka
                 #print(f"{y}\n")
                 if x == 'kafka':
+                    print("foubd kafka ok")
                 #   print(f"TOP POS{list(reqs_data.keys()).index(x)}")
                 #   print(f"Current POS{list(y.keys()).index('enabled')}")
                 # pos = list(mydict.keys()).index('Age')
                 # items = list(mydict.items())
                 # items.insert(pos, ('Phone', '123-456-7890'))
-                  y['image'] = "kymeric/cp-kafka"
-                  y['imageTag'] = "latest"
-                  y['prometheus']['jmx']['enabled'] = False
-              
+                    try : 
+                        y['image'] = "kymeric/cp-kafka"
+                        y['imageTag'] = "latest"
+                        y['prometheus']['jmx']['enabled'] = False
+                    except KeyError as ex:
+                     continue
 
                 # Set the correct mysql images
                 # note this takes a little different format because I am using the local mysql chart with 
@@ -213,25 +218,28 @@ def main(argv) :
                 # TODO: How do I put this image clauses BACK at the top of the myswl section
                 # TODO: How do I add comments and beautify the code again 
                 if x == 'mysql':
-                  #print(y['image'])
-                  try: 
-                    del y['image']
-                  except KeyError as ex:
-                      print("No such key: '%s'" % ex.message)
-                  # add back in the image details (note this goes to the bottom on the section)
-                  y['image'] = "mysql/mysql-server"
-                  y['imageTag'] = "8.0.28-1.2.7-server"
-                  y['pullPolicy'] = "ifNotPresent"
+                    #print(y['image'])
+                    try: 
+                        del y['image']
+                        # add back in the image details (note this goes to the bottom on the section)
+                        y['image'] = "mysql/mysql-server"
+                        y['imageTag'] = "8.0.28-1.2.7-server"
+                        y['pullPolicy'] = "ifNotPresent"
+                    except KeyError as ex:
+                            print(f"Key error with : {x} ")
+                            continue
 
                 #for the moment set all the sidecars to false
-                if y.get("sidecar") : 
-                    y['sidecar']['enabled'] = False
+                if type(y) is dict : 
+                    if y.get("sidecar") : 
+                        y['sidecar']['enabled'] = False
 
                 # check one level of nesting deeper for kafka resources 
-                if y.get('init', {}).get('kafka') : 
-                    #print("found kafka")
-                    #print(y['init']['kafka']['command'])
-                    y['init']['kafka']['command'] = "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
+                if type(y) is dict : 
+                    if y.get('init', {}).get('kafka') : 
+                        #print("found kafka")
+                        #print(y['init']['kafka']['command'])
+                        y['init']['kafka']['command'] = "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
                     
 
               with open(rf, "w") as f:

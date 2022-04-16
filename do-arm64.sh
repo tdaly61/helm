@@ -48,7 +48,7 @@ echo  "USAGE: $0
 Example 1 : do_arm64.sh -m all 
 
 Options:
--m mode .............all|convert_images|update_charts
+-m mode .............build|convert_images|update_charts
 -h|H ............... display this message
 "
 	fi
@@ -62,19 +62,50 @@ Options:
 # Environment Config
 ##
 SCRIPTNAME=$0
-WORKING_DIR=$HOME/work
+WORKING_DIR=$HOME/build
 HELM_CHARTS_DIR=$HOME/helm
 SCRIPT_DIR="$( dirname "${BASH_SOURCE[0]}" )"
-REPO_BASE=https://github.com/tdaly61
+REPO_BASE=https://github.com/mojaloop
 #REPO_LIST=(central-event-processor central-settlement central-ledger)
 export DOCKER_BASE_IMAGE="arm64v8/node:12-alpine"
 declare -A GIT_REPO_ARRAY=(
+    [account-lookup-service]=account_lookup_service_local
+    [als-consent-oracle]=als_consent_oracle_local
+    [als-oracle-pathfinder]=als_oracle_pathfinder_local
+    [auth-service]=auth_service_local
+    [bulk-api-adapter]=buld_api_adapter_local
     [central-event-processor]=central_event_processor_local 
-    [central-settlement]=central_settlement_local 
+    [central-kms]=central_kms_local
     [central-ledger]=central_ledger_local 
+    [central-settlement]=central_settlement_local 
+    [email-notifier]=email_notifier_local
+    [finance-portal-backend-service]=finance_portal_backend_service_local
+    [finance-portal-ui]=finance_portal_ui_local
+    [ml-api-adapter]=ml_api_adapter_local 
+    [ml-testing-toolkit-ui]=ml_testing_tookit_ui_local
+    [ml-testing-toolkit]=ml_test_toolkit_local
+    [operator-settlement]=operator_settlement_local
+    [quoting-service]=quoting_service_local
+    [settlement-management]=settlement_management_local
+    [simulator]=simulator_local
+    [thirdparty-api-svc]=thirdparty_api_svc_local
+    [transaction-requests-service]=transaction_requests_service_local
 )
+
+# see below for list of images from grepping helm repo 
+# event-sidecar
+# mojaloop/central-end-user-registry <--- looks like it is not used , or at least I can't find it's repo in the mojaloop github
+# mojaloop/email-notifier <-- used ??
+# mojaloop/event-stream-processor  <--used ??
+# mojaloop/forensic-logging-sidecar
+# mojaloop/ntpd <-- really is this needed ?  What for ? 
+# mojaloop/sdk-scheme-adapter
+# mojaloop/thirdparty-sdk
+
+
 cd $WORKING_DIR
 pwd
+
 
 # if [ "$EUID" -ne 0 ]
 #   then echo "Please run as root"
@@ -89,7 +120,7 @@ pwd
 # fi
 
 # Process command line options as required
-while getopts "m:t:u:v:rhH" OPTION ; do
+while getopts "m:hH" OPTION ; do
    case "${OPTION}" in
         m)	mode="${OPTARG}"
         ;;
@@ -106,13 +137,13 @@ done
 printf "\n\n*** Mojaloop -  building arm images and helm charts ***\n\n"
  
 # node is just a place holder flag right now. 
-if [[ "$mode" == "all" ]]  ; then
+if [[ "$mode" == "build" ]]  ; then
 	printf " running arm updating of ML \n\n"
 
     for key in  ${!GIT_REPO_ARRAY[@]}; do
         if [ ! -d $key ]; then
             printf "cloning repo: [$REPO_BASE/$key.git] \n"
-            #git clone $REPO_BASE/$key.git 
+            git clone $REPO_BASE/$key.git > /dev/null 2>&1
         else 
             printf "repo: [$REPO_BASE/$key.git]  already exists ..skipping clone\n"        
         fi    
@@ -130,8 +161,20 @@ if [[ "$mode" == "all" ]]  ; then
     printf "========================================================================================\n"
     
     for key in  ${!GIT_REPO_ARRAY[@]}; do
+        # don't build if image already exists
+        # TODO: add an override flag -force for this 
         #build_docker_image $key
-        printf "skipping build_docker_image $key\n"
+        if [ "`docker images | grep ${GIT_REPO_ARRAY[$key]} `" ] ; then
+            printf "found image [%s] so skipping build for now\n" "${GIT_REPO_ARRAY[$key]}"
+        else 
+            printf "no existing image for [$key] ; building ... "
+            build_docker_image $key > /dev/null 2>&1
+            if [ "`docker images | grep ${GIT_REPO_ARRAY[$key]} `" ] ; then
+                printf "[ok]\n" 
+            else
+                printf "\nError building docker image for [%s] \n" "${GIT_REPO_ARRAY[$key]}"
+            fi
+        fi 
     done     
 
 fi 
@@ -145,34 +188,70 @@ if [[ "$mode" == "convert_images" ]]  ; then
     done     
 fi 
 
-if [[ "$mode" == "update_charts" ]]  ; then
-    printf "\n========================================================================================\n"
-    printf " Updating helm charts to use correct images \n"
-    printf "========================================================================================\n\n"
-    printf "Updating Central chart \n"
-    #cd $HELM_CHARTS_DIR
-    cd $HOME/tmp
-    rm -rf central*
-    pwd
-    cp -r ../helm/central* .
+# if [[ "$mode" == "update_charts" ]]  ; then
+#     printf "\n========================================================================================\n"
+#     printf " Updating helm charts to use correct images \n"
+#     printf "========================================================================================\n\n"
+#     printf "Updating Central chart \n"
+#     #cd $HELM_CHARTS_DIR
+#     cd $HOME/tmp
+#     rm -rf central*
+#     pwd
+#     cp -r ../helm/central* .
 
-    # replace kafka references 
-    find . -type f -name values.yaml -print0 | xargs -0 perl -i.bak-1 -pe's/repository:\s*solsson\/kafka/repository: kymeric\/cp-kafka/g'
-    # replace kafka start-up check 
-    find . -type f -name values.yaml -print0 | xargs -0 perl -i.bak-2 -pe's/\.\/bin\/kafka-broker-api-versions.sh --bootstrap-server/nc -vz -w 1/g'
-    until ./bin/kafka-broker-api-versions.sh --bootstrap-server
-    until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;
-    # replace mysql references 
-    find . -type f -name values.yaml -print0 | xargs -0 perl -i.bak-3 -pe's/repository:\s*mysql/repository: mysql\/mysql/g'
-    # disable prometheus 
+#     # replace kafka references 
+#     find . -type f -name values.yaml -print0 | xargs -0 perl -i.bak-1 -pe's/repository:\s*solsson\/kafka/repository: kymeric\/cp-kafka/g'
+#     # replace kafka start-up check 
+#     find . -type f -name values.yaml -print0 | xargs -0 perl -i.bak-2 -pe's/\.\/bin\/kafka-broker-api-versions.sh --bootstrap-server/nc -vz -w 1/g'
+#     until ./bin/kafka-broker-api-versions.sh --bootstrap-server
+#     until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;
+#     # replace mysql references 
+#     find . -type f -name values.yaml -print0 | xargs -0 perl -i.bak-3 -pe's/repository:\s*mysql/repository: mysql\/mysql/g'
+#     # disable prometheus 
   
 
 
-    #find . -type f -name values.yaml  -print0 | xargs -0 perl -ne 'print if /repository:\s?mysql/' 
+#     #find . -type f -name values.yaml  -print0 | xargs -0 perl -ne 'print if /repository:\s?mysql/' 
     
-    # replace repository: mojaloop: central-ledger references 
-    # replace central_event_processor_local 
-    # replace central_settlement
-    # replace event-sidecar
+#     # replace repository: mojaloop: central-ledger references 
+#     # replace central_event_processor_local 
+#     # replace central_settlement
+#     # replace event-sidecar
 
-fi 
+# fi 
+# "percona/percona-xtradb-cluster"
+# bitnami/mongodb
+# bowerswilkins/awaitpostgres
+# forekshub/percona-mongodb-exporter
+# mojaloop/account-lookup-service
+# mojaloop/als-consent-oracle
+# mojaloop/als-oracle-pathfinder
+# mojaloop/auth-service
+# mojaloop/bulk-api-adapter
+# mojaloop/central-end-user-registry
+# mojaloop/central-event-processor
+# mojaloop/central-kms
+# mojaloop/central-ledger
+# mojaloop/central-settlement
+# mojaloop/email-notifier
+# mojaloop/event-sidecar
+# mojaloop/event-stream-processor
+# mojaloop/finance-portal-backend-service
+# mojaloop/finance-portal-ui
+# mojaloop/forensic-logging-sidecar
+# mojaloop/ml-api-adapter
+# mojaloop/ml-testing-toolkit
+# mojaloop/ml-testing-toolkit-ui
+# mojaloop/mojaloop-simulator
+# mojaloop/ntpd
+# mojaloop/operator-settlement
+# mojaloop/quoting-service
+# mojaloop/sdk-scheme-adapter
+# mojaloop/settlement-management
+# mojaloop/simulator
+# mojaloop/thirdparty-api-svc
+# mojaloop/thirdparty-sdk
+# mojaloop/transaction-requests-service
+# mysql
+# redis
+# solsson/kafka
