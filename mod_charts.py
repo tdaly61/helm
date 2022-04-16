@@ -35,7 +35,44 @@ from shutil import copyfile
 #import yaml
 from fileinput import FileInput
 from ruamel.yaml import YAML
+from sqlalchemy import null
 
+data = None
+
+def lookup(sk, d, path=[]):
+   # lookup the values for key(s) sk return as list the tuple (path to the value, value)
+   if isinstance(d, dict):
+       for k, v in d.items():       
+           if k == sk:
+               yield (path + [k], v)
+           for res in lookup(sk, v, path + [k]):
+               yield res
+   elif isinstance(d, list):
+       for item in d:
+           for res in lookup(sk, item, path + [item]):
+               yield res
+
+for path, value in lookup("nfs", data):
+    print(path, '->', value)
+
+# command
+#
+def update_key(key, value, dictionary):
+        for k, v in dictionary.items():
+            #print(f"printing k: {k} and printing key: {key} ")
+            if k == key:
+                #print("indeed k == key")
+                dictionary[key]=value
+                #print(f" the dictionary got updated in the previous line : {dictionary} ")
+                #return []
+            elif isinstance(v, dict):
+                for result in update_key(key, value, v):
+                    yield result
+            elif isinstance(v, list):
+                for d in v:
+                    if isinstance(d, dict):
+                        for result in update_key(key, value, d):
+                            yield result
 
 def parse_args(args=sys.argv[1:]):
     parser = argparse.ArgumentParser(description='Automate modifications across mojaloop helm charts')
@@ -87,35 +124,35 @@ def main(argv) :
             print(f"{vf} : {backupfile}")
             copyfile(vf, backupfile)
             with FileInput(files=[vf], inplace=True) as f:
-                next_line_is_mysql_tag = False
-                next_line_is_metrics_enabled = False
+                #next_line_is_mysql_tag = False
+                #next_line_is_metrics_enabled = False
                 next_line_is_mojaloop_tag = False
                 for line in f:
                     line = line.rstrip()
-                    line = re.sub("repository:\s*solsson/kafka" , "repository: kymeric/cp-kafka ", line )
-                    #line = re.sub("./bin/kafka-broker-api-versions.sh --bootstrap-server", " nc -vz -w 1", line) 
-                    if (next_line_is_mysql_tag):
-                        line = re.sub("tag:.*$", "tag: 8.0.28-1.2.7-server", line )
-                        next_line_is_mysql_tag = False
-                    if re.match("\s*repository:\s*mysql", line ) : 
-                        # modify to use the mysql-sever image for which there are arm builds
-                        # and set flag to indicate next line is the tage which also needs updating 
-                        line = re.sub("repository:\s*mysql", "repository: mysql/mysql-server", line )
-                        next_line_is_mysql_tag=True 
+                    # line = re.sub("repository:\s*solsson/kafka" , "repository: kymeric/cp-kafka ", line )
+                    # #line = re.sub("./bin/kafka-broker-api-versions.sh --bootstrap-server", " nc -vz -w 1", line) 
+                    # if (next_line_is_mysql_tag):
+                    #     line = re.sub("tag:.*$", "tag: 8.0.28-1.2.7-server", line )
+                    #     next_line_is_mysql_tag = False
+                    # if re.match("\s*repository:\s*mysql", line ) : 
+                    #     # modify to use the mysql-sever image for which there are arm builds
+                    #     # and set flag to indicate next line is the tage which also needs updating 
+                    #     line = re.sub("repository:\s*mysql", "repository: mysql/mysql-server", line )
+                    #     next_line_is_mysql_tag=True 
                     
-                    # remove percona replace with mysql-server and latest tag, similar to above
-                    if re.match("\s*repository:.*percona", line ) : 
-                      line = re.sub("repository:.*percona.*$", "repository: mysql/mysql-server", line )
-                      next_line_is_mysql_tag=True 
+                    # # remove percona replace with mysql-server and latest tag, similar to above
+                    # if re.match("\s*repository:.*percona", line ) : 
+                    #   line = re.sub("repository:.*percona.*$", "repository: mysql/mysql-server", line )
+                    #   next_line_is_mysql_tag=True 
 
                     # for now turn metrics off and metrics exporting off 
-                    if (next_line_is_metrics_enabled ):
-                        if re.match("\s* #", line ):
-                            continue
-                        line = re.sub("enabled:.*$", "enabled: false", line )
-                        next_line_is_metrics_enabled = False
-                    if re.match("\s*metrics.*$", line ) : 
-                        next_line_is_metrics_enabled=True 
+                    # if (next_line_is_metrics_enabled ):
+                    #     if re.match("\s* #", line ):
+                    #         continue
+                    #     line = re.sub("enabled:.*$", "enabled: false", line )
+                    #     next_line_is_metrics_enabled = False
+                    # if re.match("\s*metrics.*$", line ) : 
+                    #     next_line_is_metrics_enabled=True 
                     
 
                     # now update the mojaloop images 
@@ -130,10 +167,70 @@ def main(argv) :
                         line = re.sub(r"(\s+)repository:\s*mojaloop/(\w+)", r"\1repository: \2_local", line )
                         next_line_is_mojaloop_tag = True 
 
-
                     print(line)
 
-        
+
+        print("Still Processing values.yaml files.. ")
+        for rf in p.rglob('central*/values.yaml'):
+            backupfile= Path(rf.parent) / f"{rf.name}_bak1"
+            print(f"{rf} : {backupfile}")
+            copyfile(rf, backupfile)
+            with open(rf) as f:
+                reqs_data = yaml.load(f)
+                #print(reqs_data)
+
+            for x, y in reqs_data.items():
+                print("===================================================================")
+                print(x)
+                # correct image for Kafka
+                #print(f"{y}\n")
+                if x == 'kafka':
+                    print("foubd kafka ok")
+                #   print(f"TOP POS{list(reqs_data.keys()).index(x)}")
+                #   print(f"Current POS{list(y.keys()).index('enabled')}")
+                # pos = list(mydict.keys()).index('Age')
+                # items = list(mydict.items())
+                # items.insert(pos, ('Phone', '123-456-7890'))
+                    try : 
+                        y['image'] = "kymeric/cp-kafka"
+                        y['imageTag'] = "latest"
+                        y['prometheus']['jmx']['enabled'] = False
+                    except KeyError as ex:
+                        continue
+
+                # Set the correct mysql images
+                # note this takes a little different format because I am using the local mysql chart with 
+                # slightly different format
+                # TODO: How do I put this image clauses BACK at the top of the myswl section
+                # TODO: How do I add comments and beautify the code again 
+                if x == 'mysql':
+                    #print(y['image'])
+                    try: 
+                        del y['image']
+                        # add back in the image details (note this goes to the bottom on the section)
+                        y['image'] = "mysql/mysql-server"
+                        y['imageTag'] = "8.0.28-1.2.7-server"
+                        y['pullPolicy'] = "ifNotPresent"
+                    except KeyError as ex:
+                            print(f"Key error with : {x} ")
+                            continue
+
+                #for the moment set all the sidecars to false
+                if type(y) is dict : 
+                    if y.get("sidecar") : 
+                        y['sidecar']['enabled'] = False
+
+                # check one level of nesting deeper for kafka resources 
+                if type(y) is dict : 
+                    if y.get('init', {}).get('kafka') : 
+                        #print("found kafka")
+                        #print(y['init']['kafka']['command'])
+                        y['init']['kafka']['command'] = "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
+
+
+            with open(rf, "w") as f:
+                yaml.dump(reqs_data, f)    
+    
     ## TODO  Need to modify the kafka requirements.yaml to update the zookeeper image 
     ##       if I am fully automating this 
     # walk the directory structure and process all the requirements.yaml files 
@@ -175,75 +272,105 @@ def main(argv) :
                     dlist[i]['version'] = "1.0.0"
                     dlist[i]['repository'] = "file://../zookeeper"
                     print(f"new is: {dlist[i]}")
-            #print(yaml.dump(reqs_data))
 
+                if (dlist[i]['name'] == "mongodb"):
+                    print(f"old was: {dlist[i]}")
+                    dlist[i]['version'] = "1.0.0"
+                    dlist[i]['repository'] = "file://../mongodb"
+                    print(f"new is: {dlist[i]}")
+
+            #print(yaml.dump(reqs_data))
             with open(rf, "w") as f:
                 yaml.dump(reqs_data, f)
-
-                  
+              
     if (  args.testonly ) : 
-          print("\n\n=============================================================")
-          print("running toms code tests")
-          print("=============================================================")
+        print("\n\n===============================================================")
+        print("running toms code tests")
+        print(" at this stage trying to just modify the mojaloop/values.yaml file")
+        print("===============================================================")
+         
+        mlfile = p / "mojaloop" / "values.yaml"
+        backupfile = Path(mlfile.parent) / f"{mlfile.name}_bak1"
+        print (backupfile)
+        print(f"mojaloop values file : {mlfile.parent}/{mlfile.name}")
+        copyfile(mlfile, backupfile)
+
+        lev1_list=[]
+        # get all the top level resources
+        # with FileInput(files=[mlfile] ) as f:
+        #     for line in f:
+        #         line = line.rstrip()
+        #         if re.match("^(\w+)", line ) : 
+        #             #print(line)
+        #             #print("*******************************************************************")
+        #             line=line.rstrip(':')
+        #             lev1_list.append(line)
         
-          for rf in p.rglob('central*/values.yaml'):
-              backupfile= Path(rf.parent) / f"{rf.name}_bak1"
-              print(f"{rf} : {backupfile}")
-              copyfile(rf, backupfile)
-              with open(rf) as f:
-                  reqs_data = yaml.load(f)
-                  #print(reqs_data)
+        with open(mlfile) as f:
+            data = yaml.load(f)
 
-              for x, y in reqs_data.items():
-                print(x)
-                # correct image for Kafka
-                #print(f"{y}\n")
-                if x == 'kafka':
-                    print("foubd kafka ok")
-                #   print(f"TOP POS{list(reqs_data.keys()).index(x)}")
-                #   print(f"Current POS{list(y.keys()).index('enabled')}")
-                # pos = list(mydict.keys()).index('Age')
-                # items = list(mydict.items())
-                # items.insert(pos, ('Phone', '123-456-7890'))
-                    try : 
-                        y['image'] = "kymeric/cp-kafka"
-                        y['imageTag'] = "latest"
-                        y['prometheus']['jmx']['enabled'] = False
-                    except KeyError as ex:
-                     continue
+        #data['central']['centralledger']['centralledger-handler-transfer-prepare']['init']['kafka']['command'] = "tomxxxxx"
+        #print(f"data just updated is {data['central']['centralledger']['centralledger-handler-transfer-prepare']['init']['kafka']['command']}")
+        sample=0
 
-                # Set the correct mysql images
-                # note this takes a little different format because I am using the local mysql chart with 
-                # slightly different format
-                # TODO: How do I put this image clauses BACK at the top of the myswl section
-                # TODO: How do I add comments and beautify the code again 
-                if x == 'mysql':
-                    #print(y['image'])
-                    try: 
-                        del y['image']
-                        # add back in the image details (note this goes to the bottom on the section)
-                        y['image'] = "mysql/mysql-server"
-                        y['imageTag'] = "8.0.28-1.2.7-server"
-                        y['pullPolicy'] = "ifNotPresent"
-                    except KeyError as ex:
-                            print(f"Key error with : {x} ")
-                            continue
+        # update kafka settings 
+        for x, value in lookup("kafka", data):    
+            list(update_key('command', 'until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;' , value))
+            list(update_key('repository', 'kymeric/cp-kafka' , value))
 
-                #for the moment set all the sidecars to false
-                if type(y) is dict : 
-                    if y.get("sidecar") : 
-                        y['sidecar']['enabled'] = False
+        
+        # update mysql settings 
+        for x, value in lookup("mysql", data):  
+            list(update_key('repository', 'mysql/mysql-server' , value))
+            list(update_key('tag', '8.0.28-1.2.7-server' , value))
+            # pos = list(mydict.keys()).index('Age')
+            # items = list(mydict.items())
+            # items.insert(pos, ('Phone', '123-456-7890'))
+            if value.get("image") : 
+                del value['image']
+                value['image'] = "mysql/mysql-server"
+                value['imageTag'] = "8.0.28-1.2.7-server"
+                value['pullPolicy'] = "ifNotPresent"
 
-                # check one level of nesting deeper for kafka resources 
-                if type(y) is dict : 
-                    if y.get('init', {}).get('kafka') : 
-                        #print("found kafka")
-                        #print(y['init']['kafka']['command'])
-                        y['init']['kafka']['command'] = "until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;"
-                    
+        # turn the side car off for the moment 
+        for x, value in lookup("sidecar", data):  
+            list(update_key('enabled', 'False' , value))
+            print("******************")
+            print(x)
+            print(value)
+            print("******************")
 
-              with open(rf, "w") as f:
-                  yaml.dump(reqs_data, f)    
+        # turn metrics off 
+        # The simulator has metrics clause with no enabled => hence need to test
+        for x, value in lookup("metrics", data):    
+            try: 
+                if value.get("enabled") : 
+                    value['enabled'] = False
+            except Exception: 
+                continue            
+
+            #list(update_key('enabled', 'False' , value))
+            
+
+            # for k, v in value.items() :
+            #     print("&&&&&&&&")
+            #     print(k)
+            #     print(v)
+            #     print("&&&&&&&&")
+        
+        with open(mlfile, "w") as f:
+            yaml.dump(data, f)
+
+        # sample = 0 
+        # for x, value in lookup("command", data):
+        #     print("******************")
+        #     print(x)
+        #     print(value)
+        #     print("******************")
+        #     sample += 1
+        #     if sample > 10 :
+        #         break
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

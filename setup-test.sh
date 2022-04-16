@@ -41,11 +41,7 @@ SCRIPT_DIR="$( dirname "${BASH_SOURCE[0]}" )"
 REPO_BASE=https://github.com/tdaly61
 #REPO_LIST=(central-event-processor central-settlement central-ledger)
 export DOCKER_BASE_IMAGE="arm64v8/node:12-alpine"
-declare -A GIT_REPO_ARRAY=(
-    [central-event-processor]=central_event_processor_local 
-    [central-settlement]=central_settlement_local 
-    [central-ledger]=central_ledger_local 
-)
+
 cd $WORKING_DIR
 pwd
 
@@ -89,6 +85,8 @@ if [[ "$mode" == "central" ]]  ; then
     cp -r $WIP_HELM_DIR/kafka  $WORKING_DIR
     cp -r $WIP_HELM_DIR/mysql  $WORKING_DIR
     cp -r $WIP_HELM_DIR/zookeeper  $WORKING_DIR
+    cp -r $WIP_HELM_DIR/mongodb $WORKING_DIR
+    cp -r $WIP_HELM_DIR/mojaloop $WORKING_DIR
 fi 
 
 # copy all the charts and setup to enable chart deployment testing
@@ -101,4 +99,5 @@ if [[ "$mode" == "all" ]]  ; then
     cp -r $WIP_HELM_DIR/kafka  $WORKING_DIR
     cp -r $WIP_HELM_DIR/mysql  $WORKING_DIR
     cp -r $WIP_HELM_DIR/zookeeper  $WORKING_DIR
+    cp -r $WIP_HELM_DIR/mongodb $WORKING_DIR
 fi 

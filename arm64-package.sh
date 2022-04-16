@@ -22,6 +22,7 @@ else
         zookeeper
         kafka
         mysql
+        mongodb
         centralkms
         centralledger
         centralenduserregistry
