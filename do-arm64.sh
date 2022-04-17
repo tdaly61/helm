@@ -21,15 +21,21 @@ function build_docker_image {
 }
 
 function convert_to_containerd_image {
-    #TODO check docker image actually exists 
-    #todo make sure microk8s in installed 
-    #TODO : how does this work for k3s ? 
-    printf "converting image [$1] \n"
-    DOCKER_SAVE_FILE=/tmp/docker_save.tar
-    rm -rf $DOCKER_SAVE_FILE
     build_image=${GIT_REPO_ARRAY[$1]}
-    docker save $build_image > $DOCKER_SAVE_FILE
-    microk8s ctr image import $DOCKER_SAVE_FILE  
+    if [ -z "$build_image" ] ; then
+        build_image=$1
+    fi
+    if [  ! "`docker images | grep $build_image `" ] ; then
+        printf "Error : Can't find Docker image [%s] => can't convert to containerd \n" "$build_image"
+    else 
+        #todo make sure microk8s in installed 
+        #TODO : how does this work for k3s ? 
+        printf "converting image [$1] \n"
+        DOCKER_SAVE_FILE=/tmp/docker_save.tar
+        rm -rf $DOCKER_SAVE_FILE
+        docker save $build_image > $DOCKER_SAVE_FILE
+        microk8s ctr image import $DOCKER_SAVE_FILE  
+    fi
 }
 
 ################################################################################
@@ -49,6 +55,7 @@ Example 1 : do_arm64.sh -m all
 
 Options:
 -m mode .............build|convert_images|update_charts
+-i image_name ...... name of the single inage to convert to containerd
 -h|H ............... display this message
 "
 	fi
@@ -120,9 +127,11 @@ pwd
 # fi
 
 # Process command line options as required
-while getopts "m:hH" OPTION ; do
+while getopts "m:i:hH" OPTION ; do
    case "${OPTION}" in
-        m)	mode="${OPTARG}"
+        m)	MODE="${OPTARG}"
+        ;;
+        i)  IMAGENAME="${OPTARG}"
         ;;
         h|H)	showUsage
                 exit 0
@@ -137,7 +146,7 @@ done
 printf "\n\n*** Mojaloop -  building arm images and helm charts ***\n\n"
  
 # node is just a place holder flag right now. 
-if [[ "$mode" == "build" ]]  ; then
+if [[ "$MODE" == "build" ]]  ; then
 	printf " running arm updating of ML \n\n"
 
     for key in  ${!GIT_REPO_ARRAY[@]}; do
@@ -179,16 +188,21 @@ if [[ "$mode" == "build" ]]  ; then
 
 fi 
 
-if [[ "$mode" == "convert_images" ]]  ; then
+if [[ "$MODE" == "convert_images" ]]  ; then
     printf "\n========================================================================================\n"
     printf " Converting docker images to containerd (cri) \n"
     printf "========================================================================================\n"
-    for key in  ${!GIT_REPO_ARRAY[@]}; do
-        convert_to_containerd_image $key
-    done     
+    if [ ! -z ${IMAGENAME} ] ; then
+        printf "converting single image ...\n"
+        convert_to_containerd_image $IMAGENAME
+    else : 
+        for key in  ${!GIT_REPO_ARRAY[@]}; do
+            printf "convert_to_containerd_image $key " 
+        done  
+    fi   
 fi 
 
-# if [[ "$mode" == "update_charts" ]]  ; then
+# if [[ "$MODE" == "update_charts" ]]  ; then
 #     printf "\n========================================================================================\n"
 #     printf " Updating helm charts to use correct images \n"
 #     printf "========================================================================================\n\n"
