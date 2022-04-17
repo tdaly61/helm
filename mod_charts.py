@@ -241,7 +241,6 @@ def main(argv) :
                     if value.get("kafka"): 
                         value['kafka']['enabled'] = False
                     
-        
             # update mysql settings 
             for x, value in lookup("mysql", data):  
                 list(update_key('repository', 'mysql/mysql-server' , value))
@@ -257,7 +256,7 @@ def main(argv) :
 
             # turn the side car off for the moment 
             for x, value in lookup("sidecar", data):  
-                list(update_key('enabled', 'False' , value))
+                list(update_key('enabled', False , value))
 
 
             # turn metrics off 
@@ -267,7 +266,8 @@ def main(argv) :
                     if value.get("enabled") : 
                         value['enabled'] = False
                 except Exception: 
-                    continue            
+                    continue  
+
             
             with open(vf, "w") as f:
                 yaml.dump(data, f)
