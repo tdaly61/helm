@@ -25,6 +25,7 @@
 
 
 
+from http.client import MULTI_STATUS
 from operator import sub
 import sys
 import re
@@ -58,8 +59,8 @@ def lookup(sk, d, path=[]):
            for res in lookup(sk, item, path + [item]):
                yield res
 
-for path, value in lookup("nfs", data):
-    print(path, '->', value)
+# for path, value in lookup("nfs", data):
+#     print(path, '->', value)
 
 # command
 #
@@ -87,6 +88,7 @@ def parse_args(args=sys.argv[1:]):
     parser.add_argument("-r", "--requirements", required=False, action="store_true", help="modify only the requirements.yaml files")
     parser.add_argument("-t", "--testonly", required=False, action="store_true", help="run the test section of the code only ")
     parser.add_argument("-a", "--all", required=False, action="store_true", help="modify values and requirements yaml files")
+    parser.add_argument("-i", "--ingress", required=False, action="store_true", help="run the section of the code to enable testing of ingress")
 
     args = parser.parse_args(args)
     if len(sys.argv[1:])==0:
@@ -208,12 +210,6 @@ def main(argv) :
         print("running toms code tests")
         print(" at this stage trying to just modify the mojaloop/values.yaml file")
         print("===============================================================")
-         
-        # vf = p / "mojaloop" / "values.yaml"
-        # backupfile = Path(vf.parent) / f"{vf.name}_bak1"
-        # print (backupfile)
-        # print(f"mojaloop values file : {vf.parent}/{vf.name}")
-        # copyfile(vf, backupfile)
 
         for vf in p.rglob('centrall*/values.yaml'):
             backupfile= Path(vf.parent) / f"{vf.name}_bak"
@@ -272,7 +268,85 @@ def main(argv) :
             with open(vf, "w") as f:
                 yaml.dump(data, f)
 
-      
+    if (  args.ingress ) : 
+        print("\n\n==================================================================")
+        print("running toms test code to implement networking/v1 ")
+        print(" at this stage exploring programatically making the ingress changes ) ") 
+        print("======================================================================")
+
+        # modify the template files 
+        for vf in p.rglob('*.tpl'): 
+            backupfile= Path(vf.parent) / f"{vf.name}_bak"
+            print(f"{vf} : {backupfile}")
+            #copyfile(vf, backupfile)
+            with FileInput(files=[vf], inplace=True) as f:
+                for line in f:
+                    line = line.rstrip()
+                    #replace networking v1beta1 
+                    # olds1=r"networking.k8s.io/v1beta1"
+                    # news1=r"networking.k8s.io/v1"
+                    line = re.sub(r"networking.k8s.io/v1beta1", r"networking.k8s.io/v1", line)
+                    print(line)
+
+        # modify the ingress.yaml files 
+        for vf in p.rglob('*/ingress.yaml'): 
+            backupfile= Path(vf.parent) / f"{vf.name}_bak"
+            print(f"{vf} : {backupfile}")
+            #copyfile(vf, backupfile)
+
+            with FileInput(files=[vf], inplace=True) as f:
+                for line in f:
+                    line = line.rstrip()
+                    if re.search("path:", line ):
+                        line_dup = line
+                        line_dup = re.sub(r"- path:.*$", r"  pathType: ImplementationSpecific", line_dup)
+                        print(line)
+                        print(line_dup)
+                    elif re.search("serviceName:", line ):
+                        line_dup=line
+                        line_dup = re.sub(r"serviceName:.*$", r"service:", line_dup)
+                        print(line_dup)
+                        line=re.sub(r"serviceName:", r"  name:", line)
+                        print(line)
+                    elif re.search("servicePort:", line ):
+                        line_dup = line 
+                        line_dup=re.sub(r"servicePort:.*$", r"  port:", line_dup)
+                        line = re.sub(r"servicePort: ", r"    number: ", line)
+                        print(line_dup)
+                        print(line)
+                        #servicePort {{ .Values.containers.api.service.ports.api.externalPort }}
+                    elif re.search("spec:" , line ):
+                        print(line)
+                        print("  ingressClassName: nginx")
+                    else :  
+                        print(line)
+                    
+
+
+            # with open(vf) as f:
+            #     ingress_lines = f.readlines()
+
+            # pos = 0 
+            # for index, line in enumerate(ingress_lines) :
+            #     if re.search("spec:" , line ):
+            #         print("foind one")
+            #         ingress_lines.insert(index,"IngressClassName: nginx")
+                
+
+            #print(ingress_lines.strip())
+            # find spec so we can insert ingressClassName: nginx
+            # ptr1 = re.search(r"spec:.*$",data,re.MULTILINE)
+            # re.sub(r"spec:.*$")
+            # print(ptr1)
+
+
+            # replace all the 
+            # backupfile= Path(vf.parent) / f"{vf.name}_bak"
+            # print(f"{vf} : {backupfile}")
+            # copyfile(vf, backupfile)
+            
+            # with open(vf) as f:
+            #     data = yaml.load(f)     
     
 if __name__ == "__main__":
     main(sys.argv[1:])
