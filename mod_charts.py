@@ -356,24 +356,25 @@ def main(argv) :
                     print(f"      Loading yaml for ==> {vf.parent}/{vf.name}", end="")
                     data = yaml.load(f)
                     print("  :[ok]")
-                                                
-                # update mysql settings 
+
+                # => use these for now 
+                # TODO: update to later DB and get rid of default passwords 
                 for x, value in lookup("mysql", data):  
-                    print_debug(x,value)
                     list(update_key('repository', 'mysql/mysql-server' , value))
-                    list(update_key('tag', '8.0.28-1.2.7-server' , value))
-                    # if value.get("image") : 
-                    #     del value['image']
-                    #     value['image'] = "mysql/mysql-server"
-                    #     value['imageTag'] = "8.0.28-1.2.7-server"
-                    #     value['pullPolicy'] = "ifNotPresent"
-        
+                    list(update_key('tag', '5.6' , value))
+                    if value.get("image") : 
+                        del value['image']
+                        value['image'] = "mysql/mysql-server"
+                        value['imageTag'] = "5.6"
+                        value['pullPolicy'] = "ifNotPresent"
+
             with open(vf, "w") as f:
                 yaml.dump(data, f)
         
         # versions of k8s -> 1.20 use containerd not docker and the percona chart 
         # or at least the busybox dependency of the percona chart has an issue 
-        # so just replace the percona chart with the mysql charts   
+        # so just replace the percona chart with the mysql charts 
+        #  for now using the old one because it deploys => TODO fix this and update  
         for rf in p.rglob('*/requirements.yaml'):
             with open(rf) as f:
                 reqs_data = yaml.load(f)
@@ -384,8 +385,10 @@ def main(argv) :
                     if (dlist[i]['name'] == "percona-xtradb-cluster"): 
                         print(f"old was: {dlist[i]}")
                         dlist[i]['name'] = "mysql"
-                        dlist[i]['version'] = "8.8.8"
-                        dlist[i]['repository'] = "https://charts.bitnami.com/bitnami"
+                        #dlist[i]['version'] = "8.8.8"
+                        #dlist[i]['repository'] = "https://charts.bitnami.com/bitnami"
+                        dlist[i]['version'] = "1.6.9"
+                        dlist[i]['repository'] = "http://charts.helm.sh/stable"
                         dlist[i]['alias'] = "mysql"
                         dlist[i]['condition'] = "enabled"
                         print(f"new is: {dlist[i]}")
@@ -397,7 +400,7 @@ def main(argv) :
                     #     print(f"new is: {dlist[i]}")
             except Exception:
                 continue 
-            #print(yaml.dump(reqs_data))
+
             with open(rf, "w") as f:
                 yaml.dump(reqs_data, f)         
 
