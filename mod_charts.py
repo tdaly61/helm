@@ -20,11 +20,14 @@
           toplevel charts and done them by hand BUT I still need to modify the requirememts and add ghe local mysql,kafka and zookeepr charts AND 
           doing this coding starts a toolchain that we might use more in the future. 
         - OK I can probably do all this now with the ruamel yaml modules , but tidy it up later not now.
+        - As written the use of Path and FileInput requires python 3.8 or later (or at least something later than 3.6) might want 
+          to re-write this so as to make it work across more python releases.
     
 """
 
 
 
+import fileinput
 from http.client import MULTI_STATUS
 from operator import sub
 import sys
@@ -35,8 +38,8 @@ from pathlib import Path
 from shutil import copyfile 
 #import yaml
 from fileinput import FileInput
+import fileinput 
 from ruamel.yaml import YAML
-from sqlalchemy import null
 
 data = None
 
@@ -107,6 +110,20 @@ def main(argv) :
     #     "central-settlement" : "central_settlement_local" ,
     #     "central-ledger" : "central_ledger_local" ,
     # }
+
+    ports_array  = {
+        "simapi" : "3000",
+        "reportapi" : "3002",
+        "testapi" : "3003",
+        "https" : "80",
+        "http"  : "80",
+        "http-admin" : "4001",
+        "http-api"  : "4002",
+        "mysql" : "3306",
+        "mongodb" : "27017",
+        "inboundapi" : "{{ $config.config.schemeAdapter.env.INBOUND_LISTEN_PORT }}",
+        "outboundapi" : "{{ $config.config.schemeAdapter.env.OUTBOUND_LISTEN_PORT }}"
+    }
 
     p = Path() / args.directory
     print(f"Processing helm charts in directory: [{args.directory}]")
@@ -274,19 +291,28 @@ def main(argv) :
         print(" at this stage exploring programatically making the ingress changes ) ") 
         print("======================================================================")
 
+
+
+
         # modify the template files 
         for vf in p.rglob('*.tpl'): 
             backupfile= Path(vf.parent) / f"{vf.name}_bak"
             print(f"{vf} : {backupfile}")
             #copyfile(vf, backupfile)
             with FileInput(files=[vf], inplace=True) as f:
+            #with fileinput.input(files=([vf]), inplace=True)  as f:
                 for line in f:
                     line = line.rstrip()
                     #replace networking v1beta1 
-                    # olds1=r"networking.k8s.io/v1beta1"
-                    # news1=r"networking.k8s.io/v1"
                     line = re.sub(r"networking.k8s.io/v1beta1", r"networking.k8s.io/v1", line)
+                    line = re.sub(r"extensions/v1beta1", r"networking.k8s.io/v1", line )
                     print(line)
+
+# centraleventprocessor
+# account-lookup-service simulator 
+# simapi = 3000
+# #
+
 
         # modify the ingress.yaml files 
         for vf in p.rglob('*/ingress.yaml'): 
@@ -308,10 +334,13 @@ def main(argv) :
                         print(line_dup)
                         line=re.sub(r"serviceName:", r"  name:", line)
                         print(line)
-                    elif re.search("servicePort:", line ):
+                    elif re.search("servicePort:", line ):                        
                         line_dup = line 
                         line_dup=re.sub(r"servicePort:.*$", r"  port:", line_dup)
                         line = re.sub(r"servicePort: ", r"    number: ", line)
+                        # need to replace port names with numbers 
+                        for pname , pnum  in ports_array.items() : 
+                            line = re.sub(f"number: {pname}$", f"number: {pnum}", line )
                         print(line_dup)
                         print(line)
                         #servicePort {{ .Values.containers.api.service.ports.api.externalPort }}
@@ -320,8 +349,6 @@ def main(argv) :
                         print("  ingressClassName: nginx")
                     else :  
                         print(line)
-                    
-
 
             # with open(vf) as f:
             #     ingress_lines = f.readlines()
