@@ -105,11 +105,11 @@ def parse_args(args=sys.argv[1:]):
 def main(argv) :
     args=parse_args()
 
-    # charts_dict= { 
-    #     "central-event-processor" : "central_event_processor_local",
-    #     "central-settlement" : "central_settlement_local" ,
-    #     "central-ledger" : "central_ledger_local" ,
-    # }
+    ## check the yaml of these files because ruamel pythin lib has issues with loading em 
+    yaml_files_check_list = [
+        'ml-operator/values.yaml',
+        'emailnotifier/values.yaml'
+    ]
 
     ports_array  = {
         "simapi" : "3000",
@@ -225,29 +225,37 @@ def main(argv) :
     if (  args.testonly ) : 
         print("\n\n===============================================================")
         print("running toms code tests")
-        print(" at this stage trying to just modify the mojaloop/values.yaml file")
         print("===============================================================")
 
-        for vf in p.rglob('centrall*/values.yaml'):
+        for vf in p.rglob('*/values.yaml'):
             backupfile= Path(vf.parent) / f"{vf.name}_bak"
-            print(f"{vf} : {backupfile}")
+            # print(f"{vf} : {backupfile}")
             copyfile(vf, backupfile)
             
             with open(vf) as f:
-                data = yaml.load(f)
+                skip = False
+                for fn in yaml_files_check_list : 
+                    if  vf == Path(fn) :
+                        print(f"This yaml file needs checking skipping load/processing for now =>  {Path(fn)} ")
+                        skip=True
+                if not skip : 
+                    print(f"      Loading yaml for ==> {vf.parent}/{vf.name}", end="")
+                    data = yaml.load(f)
+                    print("  :[ok]")
 
             # update kafka settings 
             count = 0
             for x, value in lookup("kafka", data):    
+                #print_debug(x,value)
                 list(update_key('command', 'until nc -vz -w 1 $kafka_host $kafka_port; do echo waiting for Kafka; sleep 2; done;' , value))
                 list(update_key('repository', 'kymeric/cp-kafka' , value))
                 list(update_key('image', 'kymeric/cp-kafka' , value))
                 list(update_key('imageTag', 'latest' , value))
-                print_debug(x,value)
 
-            # turn off promerthiues jmx and kafka exporter 
+
+            # turn off prometheus jmx and kafka exporter 
             for x, value in lookup("prometheus", data):
-                print_debug(x,value , 2)
+                #print_debug(x,value , 2)
                 if  isinstance(value, dict):
                     if value.get("jmx"): 
                         value['jmx']['enabled'] = False
@@ -258,9 +266,6 @@ def main(argv) :
             for x, value in lookup("mysql", data):  
                 list(update_key('repository', 'mysql/mysql-server' , value))
                 list(update_key('tag', '8.0.28-1.2.7-server' , value))
-                # pos = list(mydict.keys()).index('Age')
-                # items = list(mydict.items())
-                # items.insert(pos, ('Phone', '123-456-7890'))
                 if value.get("image") : 
                     del value['image']
                     value['image'] = "mysql/mysql-server"
@@ -271,7 +276,6 @@ def main(argv) :
             for x, value in lookup("sidecar", data):  
                 list(update_key('enabled', False , value))
 
-
             # turn metrics off 
             # The simulator has metrics clause with no enabled setting  => hence need to test
             for x, value in lookup("metrics", data):    
@@ -280,19 +284,15 @@ def main(argv) :
                         value['enabled'] = False
                 except Exception: 
                     continue  
-
             
             with open(vf, "w") as f:
                 yaml.dump(data, f)
 
     if (  args.ingress ) : 
-        print("\n\n==================================================================")
-        print("running toms test code to implement networking/v1 ")
-        print(" at this stage exploring programatically making the ingress changes ) ") 
-        print("======================================================================")
-
-
-
+        print("\n\n======================================================================================")
+        print(" Modify charts to implement networking/v1 ")
+        print(" and to use bitnami mysql rather than percona (percona / busybox is broken on containerd) ") 
+        print("===========================================================================================")
 
         # modify the template files 
         for vf in p.rglob('*.tpl'): 
@@ -307,12 +307,6 @@ def main(argv) :
                     line = re.sub(r"networking.k8s.io/v1beta1", r"networking.k8s.io/v1", line)
                     line = re.sub(r"extensions/v1beta1", r"networking.k8s.io/v1", line )
                     print(line)
-
-# centraleventprocessor
-# account-lookup-service simulator 
-# simapi = 3000
-# #
-
 
         # modify the ingress.yaml files 
         for vf in p.rglob('*/ingress.yaml'): 
@@ -350,30 +344,63 @@ def main(argv) :
                     else :  
                         print(line)
 
-            # with open(vf) as f:
-            #     ingress_lines = f.readlines()
 
-            # pos = 0 
-            # for index, line in enumerate(ingress_lines) :
-            #     if re.search("spec:" , line ):
-            #         print("foind one")
-            #         ingress_lines.insert(index,"IngressClassName: nginx")
-                
+        for vf in p.rglob('*/values.yaml'):
+            with open(vf) as f:
+                skip = False
+                for fn in yaml_files_check_list : 
+                    if  vf == Path(fn) :
+                        print(f"This yaml file needs checking skipping load/processing for now =>  {Path(fn)} ")
+                        skip=True
+                if not skip : 
+                    print(f"      Loading yaml for ==> {vf.parent}/{vf.name}", end="")
+                    data = yaml.load(f)
+                    print("  :[ok]")
+                                                
+                # update mysql settings 
+                for x, value in lookup("mysql", data):  
+                    print_debug(x,value)
+                    list(update_key('repository', 'mysql/mysql-server' , value))
+                    list(update_key('tag', '8.0.28-1.2.7-server' , value))
+                    # if value.get("image") : 
+                    #     del value['image']
+                    #     value['image'] = "mysql/mysql-server"
+                    #     value['imageTag'] = "8.0.28-1.2.7-server"
+                    #     value['pullPolicy'] = "ifNotPresent"
+        
+            with open(vf, "w") as f:
+                yaml.dump(data, f)
+        
+        # versions of k8s -> 1.20 use containerd not docker and the percona chart 
+        # or at least the busybox dependency of the percona chart has an issue 
+        # so just replace the percona chart with the mysql charts   
+        for rf in p.rglob('*/requirements.yaml'):
+            with open(rf) as f:
+                reqs_data = yaml.load(f)
+                #print(reqs_data)
+            try: 
+                dlist = reqs_data['dependencies']
+                for i in range(len(dlist)): 
+                    if (dlist[i]['name'] == "percona-xtradb-cluster"): 
+                        print(f"old was: {dlist[i]}")
+                        dlist[i]['name'] = "mysql"
+                        dlist[i]['version'] = "8.8.8"
+                        dlist[i]['repository'] = "https://charts.bitnami.com/bitnami"
+                        dlist[i]['alias'] = "mysql"
+                        dlist[i]['condition'] = "enabled"
+                        print(f"new is: {dlist[i]}")
 
-            #print(ingress_lines.strip())
-            # find spec so we can insert ingressClassName: nginx
-            # ptr1 = re.search(r"spec:.*$",data,re.MULTILINE)
-            # re.sub(r"spec:.*$")
-            # print(ptr1)
+                    # if (dlist[i]['name'] == "mongodb"):
+                    #     print(f"old was: {dlist[i]}")
+                    #     dlist[i]['version'] = "11.1.7"
+                    #     dlist[i]['repository'] = "file://../mongodb"
+                    #     print(f"new is: {dlist[i]}")
+            except Exception:
+                continue 
+            #print(yaml.dump(reqs_data))
+            with open(rf, "w") as f:
+                yaml.dump(reqs_data, f)         
 
 
-            # replace all the 
-            # backupfile= Path(vf.parent) / f"{vf.name}_bak"
-            # print(f"{vf} : {backupfile}")
-            # copyfile(vf, backupfile)
-            
-            # with open(vf) as f:
-            #     data = yaml.load(f)     
-    
 if __name__ == "__main__":
     main(sys.argv[1:])
