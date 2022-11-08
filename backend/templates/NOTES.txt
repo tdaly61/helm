@@ -1,0 +1,3 @@
+Mojaloop example backend dependencies have been deployed.
+
+Note that this chart should only be used for development or proof-of-concept purposes.

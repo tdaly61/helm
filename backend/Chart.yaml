@@ -1,0 +1,56 @@
+apiVersion: v2
+name: backend
+description: A Helm chart containing example Mojaloop Backend Dependencies. This should be used for development/poc purposes only!
+
+# A chart can be either an 'application' or a 'library' chart.
+#
+# Application charts are a collection of templates that can be packaged into versioned archives
+# to be deployed.
+type: application
+
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: 0.2.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are not expected to
+# follow Semantic Versioning. They should reflect the version the application is using.
+# It is recommended to use it with quotes.
+appVersion: "1.16.0"
+dependencies:
+  # - name: kafka
+  #   alias: kafka
+  #   condition: kafka.enabled
+  #   ## TODO: Update charts to supported versions
+  #   # repository: "https://charts.bitnami.com/bitnami"
+  #   ## The following repo is a Work-around for Bitnami retention policy issue (https://github.com/bitnami/charts/issues/10539). Fix: https://github.com/mojaloop/project/issues/2815
+  #   repository: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+  #   tags:
+  #     - mojaloop
+  #     - dependency
+  #     - backend
+  #     - kafka
+  #   version: 14.1.1
+  - name: mysql
+    alias: mysql
+    condition: mysql.enabled
+    repository:  https://charts.bitnami.com/bitnami
+    tags:
+      - mojaloop
+      - dependency
+      - backend
+      - kafka
+    version: 9.4.1
+  # - name: mongodb
+  #   alias: reporting-events-db
+  #   condition: reporting-events-db.enabled
+  #   ## TODO: Update charts to supported versions
+  #   # repository: "https://charts.bitnami.com/bitnami"
+  #   ## The following repo is a Work-around for Bitnami retention policy issue (https://github.com/bitnami/charts/issues/10539). Fix: https://github.com/mojaloop/project/issues/2815
+  #   repository: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+  #   tags:
+  #     - mojaloop
+  #     - dependency
+  #     - backend
+  #     - mongodb
+  #   version: 10.28.1
+

@@ -690,7 +690,7 @@ als-oracle-pathfinder:
   #  memory: 128Mi
 
 mysql:
-  enabled: true
+  enabled: false
   nameOverride: "account-lookup-mysql"
   # Default values for Percona XtraDB Cluster
 
